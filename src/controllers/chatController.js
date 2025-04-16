@@ -39,11 +39,13 @@ General Guidelines:
 - Use the dataService functions to verify:
   * Service availability
   * Current pricing
-- If client shows interest in booking exactly:
-  * send clear key response so that frontend can recognize the booking request and send it to the booking controller
-- Keep responses clear and concise
+- If client eager to dive into deep conversation about the services or anyway if you think user is interested in discussing :
+  * send response message as "user wants to book a consultation call" to the frontend so that frontend can recognize the booking request and send user to the booking page
+- Keep responses clear and very very short
 - Ask clarifying questions when needed
 - Maintain context throughout the conversation
+
+overall goal is to let users to book a consultation call or contact us eventually.
 
 Remember to verify all service information and availability using the dataService functions before providing them to the client.`;
 
@@ -116,7 +118,22 @@ const services = [
   }
 ];
 
+const handleServiceQuery = async (message, context) => {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: message }
+    ],
+    temperature: 0.7,
+    max_tokens: 500
+  });
+
+  return completion.choices[0].message.content;
+}
+
 const chatController = {
+
   async initializeData(req, res, next) {
     try {
       // Clear existing data
@@ -143,27 +160,12 @@ const chatController = {
   async handleMessage(req, res, next) {
     try {
       const { message, conversationId } = req.body;
-
-      // Get relevant data based on the message
       const availableServices = await dataService.getAvailableServices();
       const context = {
         services: availableServices,
         conversationId
       };
-
-      // Check if this is a lead qualification or booking request
-      const isLeadQualification = await this.isLeadQualificationRequest(message);
-      const isBookingRequest = await this.isBookingRequest(message);
-
-      let response;
-      if (isLeadQualification) {
-        response = await this.handleLeadQualification(message, context);
-      } else if (isBookingRequest) {
-        response = await this.handleBookingRequest(message, context);
-      } else {
-        response = await this.handleServiceQuery(message, context);
-      }
-
+      const response = await handleServiceQuery(message, context);
       res.json({
         success: true,
         data: {
@@ -177,94 +179,7 @@ const chatController = {
     }
   },
 
-  async isLeadQualificationRequest(message) {
-    const qualificationKeywords = [
-      'interested', 'budget', 'timeline', 'requirements',
-      'need help', 'looking for', 'want to know more',
-      'pricing', 'cost', 'how much'
-    ];
-    
-    return qualificationKeywords.some(keyword => 
-      message.toLowerCase().includes(keyword.toLowerCase())
-    );
-  },
 
-  async isBookingRequest(message) {
-    const bookingKeywords = [
-      'book', 'schedule', 'meeting', 'call',
-      'consultation', 'appointment', 'demo'
-    ];
-    
-    return bookingKeywords.some(keyword => 
-      message.toLowerCase().includes(keyword.toLowerCase())
-    );
-  },
-
-  async handleServiceQuery(message, context) {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: message }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    });
-
-    return completion.choices[0].message.content;
-  },
-
-  async handleLeadQualification(message, context) {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: message }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    });
-
-    const response = completion.choices[0].message.content;
-
-    // If the response indicates interest in booking, suggest booking options
-    if (response.toLowerCase().includes('interested') || 
-        response.toLowerCase().includes('book') ||
-        response.toLowerCase().includes('schedule')) {
-      return response + "\n\nWould you like to schedule a consultation call to discuss your requirements in detail?";
-    }
-
-    return response;
-  },
-
-  async handleBookingRequest(message, context) {
-    // Extract booking details from the message
-    const bookingDetails = await this.extractBookingDetails(message);
-    
-    // Create a new lead with the booking details
-    const lead = new Lead({
-      ...bookingDetails,
-      status: 'New'
-    });
-
-    await lead.save();
-
-    return `Thank you for your interest! I've scheduled your consultation for ${bookingDetails.bookingDetails.preferredDate} at ${bookingDetails.bookingDetails.preferredTime}. A member of our team will contact you shortly to confirm the details.`;
-  },
-
-  async extractBookingDetails(message) {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: "Extract booking details from the following message. Return only a JSON object with name, email, phone, company, preferredDate, preferredTime, and meetingType." },
-        { role: "user", content: message }
-      ],
-      temperature: 0.3,
-      max_tokens: 200
-    });
-
-    return JSON.parse(completion.choices[0].message.content);
-  }
 };
 
 module.exports = { chatController }; 
