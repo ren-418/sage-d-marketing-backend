@@ -1,6 +1,6 @@
-# Jimmy Chatbot Backend
+# SIA Chatbot Backend
 
-This is the backend service for Jimmy, the AI assistant for CellSell (cellsell.co.za). Jimmy provides technical support for Apple devices and sales assistance for CellSell's products.
+This is the backend service for Jimmy, the AI assistant for Sage-D Marketing (sagedmarketing.co.za). SIA provides technical support for Apple devices and sales assistance for Sage-D Marketing's products.
 
 ## Features
 
@@ -40,7 +40,7 @@ npm start
 
 ### POST /api/chat/message
 
-Send a message to Jimmy and get a response.
+Send a message to SIA and get a response.
 
 Request body:
 ```json

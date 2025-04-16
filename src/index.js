@@ -12,7 +12,6 @@ const app = express();
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI, {
-  
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
@@ -31,7 +30,7 @@ app.use('/api/chat', chatRoutes);
 // Error handling
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
   logger.info(`Server is running on port ${PORT}`);
