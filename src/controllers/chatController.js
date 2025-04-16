@@ -1,169 +1,269 @@
 const OpenAI = require('openai');
 const logger = require('../utils/logger');
 const dataService = require('../services/dataService');
+const Service = require('../models/Service');
+const Lead = require('../models/Lead');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-const SYSTEM_PROMPT = `You are Jimmy, an AI assistant for CellSell (cellsell.co.za), a cell phone retailer. 
+const SYSTEM_PROMPT = `You are an AI assistant for Sage-D Marketing Group, a comprehensive marketing solutions provider. 
 Your primary roles are:
-1. Technical Support: Help customers with Apple device issues (iPhones, Apple Watches, iPads)
-2. Sales Assistant: Suggest products and deals based on customer needs
+1. Service Information: Provide detailed information about Sage-D's marketing services
+2. Lead Qualification: Identify potential clients and guide them through the booking process
 
-For Technical Support:
-- Provide detailed step-by-step troubleshooting guides
-- Help with common issues like:
-  * iOS updates and installation problems
-  * iCloud backup and sync issues
-  * Apple ID recovery and password reset
-  * Battery and performance problems
-  * Screen and hardware issues
-  * App crashes and software bugs
-- Guide users through device setup and configuration
-- Explain error messages and their solutions
-- Provide warranty information and service options
-- When needed, direct users to nearby service centers
+For Service Information:
+- Explain the following services in detail:
+  * Digital Marketing & Brand Promotion
+  * Creative Media Production
+  * Interactive & Immersive Experiences
+  * Business Technology & Web Solutions
+  * Event Planning & Execution
+- Provide pricing information when requested
+- Explain service benefits and ROI
+- Share case studies and success stories
+- Discuss service packages and customization options
 
-For Sales Support:
-- Suggest products based on:
-  * User's budget
-  * Specific needs (e.g., photography, gaming, business)
-  * Current usage patterns
-- Compare different models and their features
-- Highlight current promotions and deals
-- Check product availability and stock levels
-- Provide detailed specifications and features
-- Explain warranty and return policies
-- Guide users through the purchase process
+For Lead Qualification:
+- Ask relevant questions to understand client needs
+- Identify budget and timeline
+- Determine service requirements
+- Gauge interest level
+- Suggest appropriate service packages
+- Guide through booking process
 
 General Guidelines:
-- Always maintain a friendly, professional tone
-- Be specific and detailed in your responses
+- Maintain a professional, consultative tone
+- Be specific and detailed in responses
 - Use the dataService functions to verify:
-  * Product availability
-  * Current prices and deals
-  * Service center locations
-- If unsure about something, be honest and offer to:
-  * Connect with a human agent
-  * Provide official Apple support documentation
-  * Schedule a service center appointment
+  * Service availability
+  * Current pricing
+- If client shows interest in booking exactly:
+  * send clear key response so that frontend can recognize the booking request and send it to the booking controller
 - Keep responses clear and concise
 - Ask clarifying questions when needed
 - Maintain context throughout the conversation
 
-Remember to verify all product information, prices, and availability using the dataService functions before providing them to the user.`;
+Remember to verify all service information and availability using the dataService functions before providing them to the client.`;
+
+
+const services = [
+  {
+    name: "Digital Marketing & Brand Promotion",
+    description: "Comprehensive digital marketing solutions including social media management, corporate profiling, and paid advertising",
+    price: "Custom",
+    features: [
+      "Social Media & LinkedIn Management",
+      "Corporate Client Profiling",
+      "Paid Ads & Analytics",
+      "Marketing & Promotions"
+    ],
+    category: "Digital Marketing",
+    isAvailable: true
+  },
+  {
+    name: "Creative Media Production",
+    description: "Professional media production services including videography, photography, and CGI",
+    price: "Custom",
+    features: [
+      "Videography",
+      "Photography (Studio & Outdoor)",
+      "Graphic Design",
+      "Computer-Generated Imagery (CGI)",
+      "TV Production",
+      "Podcast Short Clipping",
+      "Drone Footage"
+    ],
+    category: "Media Production",
+    isAvailable: true
+  },
+  {
+    name: "Interactive & Immersive Experiences",
+    description: "Engaging digital experiences and interactive content solutions",
+    price: "Custom",
+    features: [
+      "Interactive Content Development",
+      "Gamification Strategies",
+      "Augmented Reality (AR) Features"
+    ],
+    category: "Interactive",
+    isAvailable: true
+  },
+  {
+    name: "Business Technology & Web Solutions",
+    description: "Comprehensive business automation and web development services",
+    price: "Custom",
+    features: [
+      "Business Automations & CRM",
+      "Web Development",
+      "Database Marketing"
+    ],
+    category: "Technology",
+    isAvailable: true
+  },
+  {
+    name: "Event Planning & Execution",
+    description: "Full-service event planning and marketing solutions",
+    price: "Custom",
+    features: [
+      "Events Set Up",
+      "Marketing & Promotions for Events",
+      "Brand Activations"
+    ],
+    category: "Events",
+    isAvailable: true
+  }
+];
 
 const chatController = {
+  async initializeData(req, res, next) {
+    try {
+      // Clear existing data
+      await Service.deleteMany({});
+      await Lead.deleteMany({});
+
+      // Insert new data
+      await Service.insertMany(services);
+
+      logger.info('Database initialized successfully');
+      res.json({
+        success: true,
+        message: 'Database initialized successfully',
+        data: {
+          services: services.length
+        }
+      });
+    } catch (error) {
+      logger.error('Error initializing database:', error);
+      next(error);
+    }
+  },
+
   async handleMessage(req, res, next) {
     try {
       const { message, conversationId } = req.body;
 
       // Get relevant data based on the message
-      const currentDeals = await dataService.getCurrentDeals();
-      const productsOnSale = await dataService.getProductsOnSale();
-
-      // Create a context with the current data
+      const availableServices = await dataService.getAvailableServices();
       const context = {
-        currentDeals: JSON.stringify(currentDeals),
-        productsOnSale: JSON.stringify(productsOnSale)
+        services: availableServices,
+        conversationId
       };
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "system", content: `Current data context: ${JSON.stringify(context)}` },
-          { role: "user", content: message }
-        ],
-        temperature: 0.7,
-        max_tokens: 500,
-        functions: [
-          {
-            name: "getProductByModel",
-            description: "Get product details by model name",
-            parameters: {
-              type: "object",
-              properties: {
-                model: {
-                  type: "string",
-                  description: "The model name of the product"
-                }
-              },
-              required: ["model"]
-            }
-          },
-          {
-            name: "getServiceCentersNearLocation",
-            description: "Find service centers near a location",
-            parameters: {
-              type: "object",
-              properties: {
-                latitude: {
-                  type: "number",
-                  description: "Latitude of the location"
-                },
-                longitude: {
-                  type: "number",
-                  description: "Longitude of the location"
-                }
-              },
-              required: ["latitude", "longitude"]
-            }
-          }
-        ],
-        function_call: "auto"
-      });
+      // Check if this is a lead qualification or booking request
+      const isLeadQualification = await this.isLeadQualificationRequest(message);
+      const isBookingRequest = await this.isBookingRequest(message);
 
-      const response = completion.choices[0].message;
-
-      // Handle function calls if any
-      if (response.function_call) {
-        const functionName = response.function_call.name;
-        const functionArgs = JSON.parse(response.function_call.arguments);
-
-        let functionResult;
-        switch (functionName) {
-          case "getProductByModel":
-            functionResult = await dataService.getProductByModel(functionArgs.model);
-            break;
-          case "getServiceCentersNearLocation":
-            functionResult = await dataService.getServiceCentersNearLocation(
-              functionArgs.latitude,
-              functionArgs.longitude
-            );
-            break;
-        }
-
-        // Get final response with function results
-        const finalCompletion = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: message },
-            { role: "assistant", content: response.content },
-            { role: "function", name: functionName, content: JSON.stringify(functionResult) }
-          ],
-          temperature: 0.7,
-          max_tokens: 500
-        });
-
-        response.content = finalCompletion.choices[0].message.content;
+      let response;
+      if (isLeadQualification) {
+        response = await this.handleLeadQualification(message, context);
+      } else if (isBookingRequest) {
+        response = await this.handleBookingRequest(message, context);
+      } else {
+        response = await this.handleServiceQuery(message, context);
       }
-
-      logger.info(`Chat response generated for conversation ${conversationId}`);
 
       res.json({
         success: true,
         data: {
-          response: response.content,
+          response,
           conversationId
         }
       });
     } catch (error) {
-      logger.error('Error in chat controller:', error);
+      logger.error('Error handling message:', error);
       next(error);
     }
+  },
+
+  async isLeadQualificationRequest(message) {
+    const qualificationKeywords = [
+      'interested', 'budget', 'timeline', 'requirements',
+      'need help', 'looking for', 'want to know more',
+      'pricing', 'cost', 'how much'
+    ];
+    
+    return qualificationKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword.toLowerCase())
+    );
+  },
+
+  async isBookingRequest(message) {
+    const bookingKeywords = [
+      'book', 'schedule', 'meeting', 'call',
+      'consultation', 'appointment', 'demo'
+    ];
+    
+    return bookingKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword.toLowerCase())
+    );
+  },
+
+  async handleServiceQuery(message, context) {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: message }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    });
+
+    return completion.choices[0].message.content;
+  },
+
+  async handleLeadQualification(message, context) {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: message }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    });
+
+    const response = completion.choices[0].message.content;
+
+    // If the response indicates interest in booking, suggest booking options
+    if (response.toLowerCase().includes('interested') || 
+        response.toLowerCase().includes('book') ||
+        response.toLowerCase().includes('schedule')) {
+      return response + "\n\nWould you like to schedule a consultation call to discuss your requirements in detail?";
+    }
+
+    return response;
+  },
+
+  async handleBookingRequest(message, context) {
+    // Extract booking details from the message
+    const bookingDetails = await this.extractBookingDetails(message);
+    
+    // Create a new lead with the booking details
+    const lead = new Lead({
+      ...bookingDetails,
+      status: 'New'
+    });
+
+    await lead.save();
+
+    return `Thank you for your interest! I've scheduled your consultation for ${bookingDetails.bookingDetails.preferredDate} at ${bookingDetails.bookingDetails.preferredTime}. A member of our team will contact you shortly to confirm the details.`;
+  },
+
+  async extractBookingDetails(message) {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: "Extract booking details from the following message. Return only a JSON object with name, email, phone, company, preferredDate, preferredTime, and meetingType." },
+        { role: "user", content: message }
+      ],
+      temperature: 0.3,
+      max_tokens: 200
+    });
+
+    return JSON.parse(completion.choices[0].message.content);
   }
 };
 

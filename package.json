@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "jest",
-    "seed": "node src/seed/seedData.js"
+    "test": "jest"
   },
   "dependencies": {
     "express": "^4.18.2",

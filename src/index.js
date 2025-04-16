@@ -12,8 +12,7 @@ const app = express();
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI, {
-  user: process.env.MONGODB_USER,
-  pass: process.env.MONGODB_PASSWORD,
+  
   useNewUrlParser: true,
   useUnifiedTopology: true
 })

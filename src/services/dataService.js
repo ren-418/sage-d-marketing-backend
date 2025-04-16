@@ -1,49 +1,43 @@
-const Product = require('../models/Product');
-const ServiceCenter = require('../models/ServiceCenter');
+
+const Service = require('../models/Service');
+const logger = require('../utils/logger');
 
 const dataService = {
-  async getProductsByCategory(category) {
-    return await Product.find({ category });
+  async getAvailableServices() {
+    try {
+      const services = await Service.find({ isAvailable: true });
+      return services;
+    } catch (error) {
+      logger.error('Error fetching available services:', error);
+      throw error;
+    }
   },
 
-  async getProductByModel(model) {
-    return await Product.findOne({ model: new RegExp(model, 'i') });
+  async getServiceByCategory(category) {
+    try {
+      const services = await Service.find({ 
+        category,
+        isAvailable: true 
+      });
+      return services;
+    } catch (error) {
+      logger.error(`Error fetching services for category ${category}:`, error);
+      throw error;
+    }
   },
 
-  async getProductsOnSale() {
-    return await Product.find({ isOnSale: true });
-  },
-
-  async getServiceCentersNearLocation(latitude, longitude, maxDistance = 5000) {
-    return await ServiceCenter.find({
-      location: {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [longitude, latitude]
-          },
-          $maxDistance: maxDistance
-        }
+  async getServiceDetails(serviceId) {
+    try {
+      const service = await Service.findById(serviceId);
+      if (!service) {
+        throw new Error('Service not found');
       }
-    });
+      return service;
+    } catch (error) {
+      logger.error(`Error fetching service details for ID ${serviceId}:`, error);
+      throw error;
+    }
   },
-
-  async getProductStock(model) {
-    const product = await Product.findOne({ model: new RegExp(model, 'i') });
-    return product ? product.stock : 0;
-  },
-
-  async getProductSpecifications(model) {
-    const product = await Product.findOne({ model: new RegExp(model, 'i') });
-    return product ? product.specifications : null;
-  },
-
-  async getCurrentDeals() {
-    return await Product.find({
-      isOnSale: true,
-      saleEndDate: { $gt: new Date() }
-    }).sort({ salePrice: 1 });
-  }
 };
 
 module.exports = dataService; 
