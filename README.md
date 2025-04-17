@@ -1,15 +1,24 @@
 # SIA Chatbot Backend
 
-This is the backend service for Jimmy, the AI assistant for Sage-D Marketing (sagedmarketing.co.za). SIA provides technical support for Apple devices and sales assistance for Sage-D Marketing's products.
+This is the backend service for SIA, the AI assistant for Sage-D Marketing (sagedmarketing.co.za). SIA provides service related questions and guide users to proceed for Sage-D Marketing's services.
 
 ## Features
 
-- Technical support for Apple devices (iPhones, Apple Watches, iPads)
-- Sales assistance and product recommendations
-- Real-time chat responses using OpenAI's GPT-4
+- AI-powered chat interface using OpenAI's GPT-4
+- Service information and consultation for:
+  * Digital Marketing & Brand Promotion
+  * Creative Media Production
+  * Interactive & Immersive Experiences
+  * Business Technology & Web Solutions
+  * Event Planning & Execution
+- Lead qualification and booking assistance
+- Conversation tracking with unique conversation IDs
+- Service availability checking
+- Real-time chat responses
 - Secure API endpoints
 - Comprehensive logging
 - Error handling and validation
+- Database integration for service and lead management
 
 ## Setup
 
